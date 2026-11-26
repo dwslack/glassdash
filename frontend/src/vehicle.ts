@@ -12,7 +12,7 @@ export interface VehicleInfo {
 
 // Until dashd answers (or in ?mock=1): the project's own truck.
 export let vehicle: VehicleInfo = {
-  id: "gm/silverado-1500-2011-5.3", name: "Chevrolet Silverado 1500 2011, 5.3 L V8", vehicle: {}, chain: [],
+  id: "gm/silverado-3500hd-2011-6.0", name: "Chevrolet Silverado 3500HD 2011, 6.0 L V8", vehicle: {}, chain: [],
   gauges: { rpm_max: 6000, shift_rpm: 4800, redline_rpm: 5600, speed_max: 160 }, signals: {}, body: { bus: null, frames: {} },
 };
 const listeners: ((v: VehicleInfo) => void)[] = [];

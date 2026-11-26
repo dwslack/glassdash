@@ -1,0 +1,18 @@
+# The truck this project is built on. GMT900 HD (2500HD/3500HD) shares the cab, OBD port and
+# GMLAN body bus with the 1500s, so everything comes from gm/gmt900.
+schema: 1
+name: Chevrolet Silverado 3500HD 2011, 6.0 L V8
+extends: gm/gmt900
+vehicle:
+  make: Chevrolet
+  model: Silverado 3500HD
+  years: [2011, 2011]
+  engine: 6.0 L V8 (Vortec 6000, L96, flex-fuel)
+  transmission: 6L90 six-speed automatic
+  fuel: gasoline     # fuel economy assumes gasoline; E85 will read wrong
+gauges:
+  rpm_max: 6000
+  shift_rpm: 4800
+  redline_rpm: 5600  # unverified: check against the truck's tach
+  speed_max: 160
+  tank_l: 136        # 36 US gal long-box HD tank; unverified

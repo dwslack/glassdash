@@ -29,7 +29,7 @@ def test_inheritance_merges_platform_and_generic():
     p = load_profile(DEFAULT_VEHICLE)
     names = {x.name for x in p.pids}
     assert {"rpm", "speed", "coolant", "trans_temp", "oil_pressure"} <= names
-    assert p.chain == ["gm/silverado-1500-2011-5.3", "gm/gmt900", "generic/obd2"]
+    assert p.chain == ["gm/silverado-3500hd-2011-6.0", "gm/gmt900", "generic/obd2"]
     assert p.gauges["redline_rpm"] == 5600 and p.gauges["speed_max"] == 160
     assert p.bus["type"] == "gmlan-swcan" and {f.name for f in p.frames} == {"doors", "locks", "lights", "occupants"}
     assert not any(x.verified for x in p.pids)  # nothing checked on a truck yet

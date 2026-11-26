@@ -10,7 +10,7 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
     { key: "auto_tow_view", label: "Switch to the Tow view when the transmission runs hot", hint: "Only if trans temp isn't already on screen, once per hot spell. Swipe the gauges to change views; long-press a gauge to change what it shows." },
   ] },
   { title: "Fuel", fields: [
-    { key: "tank_l", label: "Tank size", unit: "L", step: 1, hint: "98 L standard; 129 L with the 34 gal long-box tank." },
+    { key: "tank_l", label: "Tank size", unit: "L", step: 1, hint: "Check your owner's manual. 2011 Silverado: 98 L (1500 standard), 129 L (1500 long box), 136 L (HD long box)." },
     { key: "fuel_cal", label: "Fuel calibration", step: 0.01, hint: "Litres pumped ÷ litres the dash estimated since the last fill. 1.00 = no correction." },
   ] },
   { title: "Online maps (need internet)", fields: [

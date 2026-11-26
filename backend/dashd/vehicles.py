@@ -25,7 +25,7 @@ from .body import BodyFrame
 from .pids import Pid, _compile
 
 VEHICLES_DIR = Path(__file__).resolve().parents[2] / "vehicles"
-DEFAULT_VEHICLE = "gm/silverado-1500-2011-5.3"
+DEFAULT_VEHICLE = "gm/silverado-3500hd-2011-6.0"
 GAUGE_DEFAULTS = {"rpm_max": 7000, "shift_rpm": 5500, "redline_rpm": 6500, "speed_max": 200}
 
 

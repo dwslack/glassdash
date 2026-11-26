@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 DEFAULTS: dict = {
-    "vehicle": "gm/silverado-1500-2011-5.3",  # profile id under vehicles/ (checked by the server)
-    "tank_l": 98.0,           # 26 US gal, standard 2011 Silverado 1500
+    "vehicle": "gm/silverado-3500hd-2011-6.0",  # profile id under vehicles/ (checked by the server)
+    "tank_l": 136.0,          # 36 US gal, 2011 Silverado 3500HD long box (unverified)
     "fuel_cal": 1.0,          # multiply the MAF fuel estimate; set from fill-ups (pumped / estimated)
     "night": "auto",          # auto (by sunset at the GPS position) | on | off
     "night_brightness": 0.55,  # 0.2-1.0, how bright night mode is
