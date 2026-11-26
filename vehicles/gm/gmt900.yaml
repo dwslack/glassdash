@@ -1,0 +1,37 @@
+# GM GMT900 trucks and SUVs (2007-2014 Silverado, Sierra, Tahoe, Suburban, Yukon, Avalanche, Escalade).
+# A base for model profiles, not picked directly. Adds GM Mode 22 PIDs and the GMLAN body bus.
+schema: 1
+name: GM GMT900 platform
+abstract: true
+extends: generic/obd2
+vehicle:
+  make: GM
+  model: GMT900 trucks and SUVs
+  years: [2007, 2014]
+pids:
+  # GM Mode 22 PIDs from forum lists, not GM documentation. Unverified until someone checks them on a truck.
+  trans_temp:   {mode: 0x22, pid: 0x1940, ecu: 0x7E2, formula: A-40, unit: C, hz: 1}
+  oil_temp:     {mode: 0x22, pid: 0x1154, ecu: 0x7E0, formula: A-40, unit: C, hz: 0.5}
+  # The formula is a guess: check against the cluster gauge before trusting the number or the low-pressure alert.
+  oil_pressure: {mode: 0x22, pid: 0x115C, ecu: 0x7E0, formula: A*4, unit: kPa, hz: 1}
+body:
+  # GM single-wire CAN (GMLAN SWCAN), OBD pin 1, listened to passively: dashd never transmits on it.
+  bus: {type: gmlan-swcan, bitrate: 33333, obd_pins: [1, 5]}
+  # !!! EVERY FRAME ID AND BIT BELOW IS A PLACEHOLDER !!!
+  # GM doesn't publish these. Map them on a truck with Settings > Vehicle > Map a signal,
+  # then add `verified:` to each frame you confirmed.
+  # GMLAN uses 29-bit ids: priority (3 bits) | arbitration id (13 bits) | sender (13 bits).
+  # `arb` is the 13-bit arbitration id; any sender matches. Signals are [byte, bit], bit 0 = least significant.
+  frames:
+    doors:
+      arb: 0x0F1
+      signals: {door_driver: [0, 0], door_passenger: [0, 1], door_rear_left: [0, 2], door_rear_right: [0, 3], tailgate: [0, 4], hood: [0, 5]}
+    locks:
+      arb: 0x0F2
+      signals: {locked: [0, 0]}
+    lights:
+      arb: 0x0F3
+      signals: {parking_lights: [0, 0], low_beam: [0, 1], high_beam: [0, 2], fog: [0, 3], turn_left: [0, 4], turn_right: [0, 5], brake: [0, 6], reverse: [0, 7]}
+    occupants:
+      arb: 0x0F4
+      signals: {belt_driver: [0, 0], belt_passenger: [0, 1], passenger_seated: [0, 2], parking_brake: [0, 3]}

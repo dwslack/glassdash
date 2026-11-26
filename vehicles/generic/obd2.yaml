@@ -1,0 +1,30 @@
+# Any car with OBD-II over CAN (most cars from 2008 on): the standard Mode 01 PIDs only.
+# Other profiles start from this one with `extends: generic/obd2` and add their own.
+# Not every car answers every PID; ones it doesn't answer just show "no reading".
+schema: 1
+name: Any OBD-II car (standard PIDs only)
+vehicle:
+  make: Generic
+  model: OBD-II over CAN
+gauges:
+  rpm_max: 7000
+  shift_rpm: 5500
+  redline_rpm: 6500
+  speed_max: 200
+pids:
+  rpm:      {mode: 0x01, pid: 0x0C, ecu: 0x7E0, formula: (A*256+B)/4, unit: rpm, hz: 8}
+  speed:    {mode: 0x01, pid: 0x0D, ecu: 0x7E0, formula: A, unit: km/h, hz: 8}
+  coolant:  {mode: 0x01, pid: 0x05, ecu: 0x7E0, formula: A-40, unit: C, hz: 1}
+  voltage:  {mode: 0x01, pid: 0x42, ecu: 0x7E0, formula: (A*256+B)/1000, unit: V, hz: 1}
+  # Mass airflow. Used with the stoichiometric ratio to estimate fuel flow for trips.
+  maf:      {mode: 0x01, pid: 0x10, ecu: 0x7E0, formula: (A*256+B)/100, unit: g/s, hz: 4}
+  fuel_level: {mode: 0x01, pid: 0x2F, ecu: 0x7E0, formula: A*100/255, unit: "%", hz: 0.2}
+  engine_load: {mode: 0x01, pid: 0x04, ecu: 0x7E0, formula: A*100/255, unit: "%", hz: 2}
+  throttle: {mode: 0x01, pid: 0x11, ecu: 0x7E0, formula: A*100/255, unit: "%", hz: 2}
+  intake_temp: {mode: 0x01, pid: 0x0F, ecu: 0x7E0, formula: A-40, unit: C, hz: 0.5}
+  ambient_temp: {mode: 0x01, pid: 0x46, ecu: 0x7E0, formula: A-40, unit: C, hz: 0.2}
+  baro:     {mode: 0x01, pid: 0x33, ecu: 0x7E0, formula: A, unit: kPa, hz: 0.1}
+  # Fuel trims, bank 1. Long-term steadily above +10% points to a vacuum leak or weak MAF.
+  stft_b1:  {mode: 0x01, pid: 0x06, ecu: 0x7E0, formula: (A-128)*100/128, unit: "%", hz: 1}
+  ltft_b1:  {mode: 0x01, pid: 0x07, ecu: 0x7E0, formula: (A-128)*100/128, unit: "%", hz: 0.5}
+  timing:   {mode: 0x01, pid: 0x0E, ecu: 0x7E0, formula: A/2-64, unit: deg, hz: 1}

@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dwslack/glassdash/vehicles/schema.json",
+  "title": "glassdash vehicle profile",
+  "description": "One vehicle (or a shared platform base) for the glass dash: OBD PIDs, body-bus frames and gauge ranges.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "name"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1,
+      "description": "Profile format version."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80,
+      "description": "Shown in the vehicle picker."
+    },
+    "abstract": {
+      "type": "boolean",
+      "description": "A base other profiles extend; not offered in the picker."
+    },
+    "extends": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$",
+      "description": "Profile id (path under vehicles/ without .yaml) this one builds on."
+    },
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "make": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "years": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1996,
+            "maximum": 2100
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[first, last] model year, inclusive."
+        },
+        "engine": {
+          "type": "string"
+        },
+        "transmission": {
+          "type": "string"
+        },
+        "fuel": {
+          "enum": [
+            "gasoline",
+            "diesel",
+            "hybrid",
+            "electric",
+            "other"
+          ]
+        }
+      }
+    },
+    "gauges": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rpm_max": {
+          "type": "integer",
+          "minimum": 2000,
+          "maximum": 12000,
+          "description": "End of the tach scale."
+        },
+        "shift_rpm": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 12000,
+          "description": "Tach turns amber from here."
+        },
+        "redline_rpm": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 12000,
+          "description": "Tach red band and red fill from here."
+        },
+        "speed_max": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 400,
+          "description": "km/h."
+        },
+        "tank_l": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 400,
+          "description": "Standard tank, litres. Suggested when the profile is picked."
+        }
+      }
+    },
+    "pids": {
+      "type": "object",
+      "description": "Signals read by OBD request. Keys are signal names (snake_case); reuse the standard names (rpm, coolant, trans_temp...) so gauges pick them up.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,31}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "pid",
+          "ecu",
+          "formula",
+          "unit",
+          "hz"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              1,
+              34
+            ],
+            "description": "0x01 (standard) or 0x22 (manufacturer, 2-byte id)."
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "ecu": {
+            "type": "integer",
+            "minimum": 1792,
+            "maximum": 2047,
+            "description": "11-bit request id, usually 0x7E0 (engine) or 0x7E2 (transmission). The reply comes from ecu + 8."
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Arithmetic on reply bytes A, B, C, D with + - * / and parentheses."
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "hz": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 20,
+            "description": "How often to ask."
+          },
+          "verified": {
+            "$ref": "#/$defs/verified"
+          }
+        },
+        "description": "A PID, or null to remove one inherited from the base profile."
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "bitrate"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "gmlan-swcan",
+                "can"
+              ],
+              "description": "gmlan-swcan: GM single-wire CAN with 29-bit ids. can: ordinary CAN (11- or 29-bit ids)."
+            },
+            "bitrate": {
+              "type": "integer",
+              "minimum": 10000,
+              "maximum": 1000000
+            },
+            "obd_pins": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "maxItems": 2
+            }
+          }
+        },
+        "frames": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "additionalProperties": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "signals"
+            ],
+            "properties": {
+              "arb": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8191,
+                "description": "GMLAN 13-bit arbitration id (any sender)."
+              },
+              "id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 536870911,
+                "description": "Exact CAN id, for ordinary CAN."
+              },
+              "signals": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": {
+                  "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 3,
+                  "prefixItems": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 63
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 7
+                    },
+                    {
+                      "const": "inverted"
+                    }
+                  ],
+                  "description": "[byte, bit], or [byte, bit, \"inverted\"] when 0 means on."
+                }
+              },
+              "verified": {
+                "$ref": "#/$defs/verified"
+              }
+            },
+            "description": "A frame with `arb` (GMLAN) or `id` (plain CAN), or null to remove an inherited one."
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "verified": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "date"
+      ],
+      "description": "Who checked this on a real vehicle. Leave it out until someone has.",
+      "properties": {
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "GitHub username."
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "vehicle": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Year/model/engine it was checked on, if narrower than the profile."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    }
+  }
+}

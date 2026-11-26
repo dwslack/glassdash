@@ -1,0 +1,17 @@
+# The truck this project was built on. Same GMT900 base as other 2007-2013 Silverado/Sierra 1500s.
+schema: 1
+name: Chevrolet Silverado 1500 2011, 5.3 L V8
+extends: gm/gmt900
+vehicle:
+  make: Chevrolet
+  model: Silverado 1500
+  years: [2011, 2011]
+  engine: 5.3 L V8 (Vortec 5300, Gen IV)
+  transmission: 6L80 six-speed automatic
+  fuel: gasoline
+gauges:
+  rpm_max: 6000
+  shift_rpm: 4800
+  redline_rpm: 5600
+  speed_max: 160
+  tank_l: 98        # 26 US gal standard; 129 L with the 34 gal long-box tank

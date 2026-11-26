@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Glass dash</title>
+  </head>
+  <body>
+    <main id="app">
+      <section id="left"></section>
+      <section id="map-wrap"><div id="map"></div><div id="map-note"></div><div id="map-buttons"><button id="nav-toggle">Navigate</button><button id="map-toggle">Satellite</button><button id="sv-toggle">Street photos</button></div><div id="sv-panel" hidden></div><div id="truck-mini" class="nodata"></div></section>
+    </main>
+    <main id="truck" hidden></main>
+    <main id="trips" hidden></main>
+    <main id="diag" hidden></main>
+    <main id="settings" hidden></main>
+    <main id="learn" hidden></main>
+    <div id="alerts"></div>
+    <div id="toast" hidden></div>
+    <div id="dimmer"></div>
+    <footer id="status">
+      <span id="conn">connecting</span>
+      <nav id="nav"><a href="#dash">Dash</a><a href="#truck">Truck</a><a href="#trips">Trips</a><a href="#diag">Diagnostics</a><a href="#settings">Settings</a></nav>
+      <button id="debug-toggle">debug</button>
+    </footer>
+    <pre id="debug" hidden></pre>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

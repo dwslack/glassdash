@@ -1,0 +1,20 @@
+{
+  "name": "glassdash-ui",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "node --max-http-header-size=65536 node_modules/vite/bin/vite.js --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "@protomaps/basemaps": "^5.7.2",
+    "maplibre-gl": "^4.7.0",
+    "pmtiles": "^4.5.0"
+  }
+}
