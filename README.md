@@ -27,15 +27,15 @@ The **Truck** page (and a small copy on the dash map) shows a top-down Silverado
 
 These signals aren't on the OBD diagnostic bus. They're on GM's **single-wire CAN** (GMLAN SWCAN, 33.333 kbit/s, OBD pin 1), which dashd only listens to and never transmits on.
 
-- **Hardware:** channel 2 of the Waveshare 2-CH CAN HAT (`can1`). OBD pin 1 goes to CAN_H and pin 5 (signal ground) goes to CAN_L. An ordinary high-speed transceiver can *receive* single-wire CAN this way, because the dominant level (~4 V) reads as dominant across H/L.
+- **Hardware:** channel 2 (CAN_1) of the Waveshare 2-CH CAN HAT+, named `swcan` on the Pi (channel 1, CAN_0, is `hscan`, the OBD bus). OBD pin 1 goes to CAN_H and pin 5 (signal ground) goes to CAN_L. An ordinary high-speed transceiver can *receive* single-wire CAN this way, because the dominant level (~4 V) reads as dominant across H/L.
   - **Turn off the 120 Ω terminator on channel 2 before plugging in.** On the single-wire bus it would be a 120 Ω load from pin 1 to ground, which can disrupt the truck's body modules (locks, lights, cluster). With the HAT unpowered, measure CAN_H to CAN_L on channel 2: it must read well above 120 Ω.
-  - It has to be listen-only, so the HAT never ACKs or transmits:
+  - It has to be listen-only, so the HAT never ACKs or transmits. `pi/setup.sh` sets that up at every boot, and refuses to leave `swcan` up if listen-only didn't take. By hand it's:
     ```sh
-    sudo ip link set can1 type can bitrate 33333 listen-only on
-    sudo ip link set can1 up
+    sudo ip link set swcan type can bitrate 33333 listen-only on
+    sudo ip link set swcan up
     ```
 - **Frame ids:** `vehicles/gm/gmt900.yaml` holds the frame/bit table, and **every entry is a placeholder**. GM doesn't publish them. Map them on the truck with **Settings › Vehicle › Map a signal** (record, toggle the door or light, it finds the bit and writes the YAML), then add `verified:` to each frame. Until then the Truck page says it's a sim demo.
-- `dashd --source socketcan` listens on `can1` by default. Use `--body-channel ''` to turn it off. A missing interface just disables the Truck view.
+- `dashd --source socketcan` listens on `can1` by default; the Pi service passes `--body-channel swcan`. Use `--body-channel ''` to turn it off. A missing interface just disables the Truck view.
 
 ### Maps
 
@@ -60,6 +60,10 @@ These signals aren't on the OBD diagnostic bus. They're on GM's **single-wire CA
 - Everything is checkpointed to SQLite every 15 s, so a power cut at key-off loses at most 15 s. Real drives go to `data/trips.db`, sim drives to `data/trips-sim.db` (`--data` to move them).
 - To calibrate fuel: after a fill-up, divide litres pumped by litres the dash logged since the last fill, and enter that as Fuel calibration in Settings.
 - Range = fuel level x tank (98 L, set in Settings) / economy, using this drive once it has 5 km, else Trip A, else 14 L/100 km.
+
+## On the Pi
+
+[docs/pi-setup.md](docs/pi-setup.md) turns a fresh Raspberry Pi OS card into a running dash with one script (`pi/setup.sh`): CAN HAT, GPS, HTTPS, a WiFi hotspot for the iPad and autostart, plus a bench self-check.
 
 ## Run it
 
@@ -109,7 +113,7 @@ brew install mkcert
 just https-cert   # makes data/tls, prints the 4 steps to trust it on the iPad
 ```
 
-Then use `https://<your-mac>.local:8000` (or `:5173` with `just dev`). On the truck the Pi gets its own certificate the same way.
+Then use `https://<your-mac>.local:8000` (or `:5173` with `just dev`). On the Pi, `pi/setup.sh` makes its own certificate (see [docs/pi-setup.md](docs/pi-setup.md)).
 
 ### Sim routes
 
@@ -161,12 +165,13 @@ lines to add. See [CONTRIBUTING.md](CONTRIBUTING.md) for adding a vehicle and ma
 backend/dashd/      pids.py (PID table + decoding), obd.py (poller), bus.py (latest values),
                     trips.py (drive log + Trip A/B), fuel.py (MAF to fuel flow),
                     dtc.py + diag.py (trouble codes), isotp.py (multi-frame replies),
-                    body.py (single-wire CAN body signals),
+                    body.py (single-wire CAN body signals), gpsd.py (real GPS on the Pi),
                     server.py (HTTP + WebSocket), sim/ (vehicle model, fake ECUs, fake GPS)
 backend/tests/      unit + simulator round-trip tests
 vehicles/           vehicle profiles: PIDs, body-bus frames, gauge ranges; schema.json; see CONTRIBUTING.md
 frontend/           Vite + TypeScript + MapLibre GL
 sim/tracks/         GPS routes for the simulator
+pi/                 setup.sh + selfcheck.sh for the Pi, systemd units, helper scripts (docs/pi-setup.md)
 ```
 
 Adding a signal = add it to the vehicle profile (`vehicles/…yaml`). Gauges are widgets in `frontend/src/widgets.ts`.

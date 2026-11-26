@@ -144,3 +144,9 @@ https-cert:
     echo "  2. Settings > General > VPN & Device Management: install the profile"
     echo "  3. Settings > General > About > Certificate Trust Settings: turn on full trust for mkcert"
     echo "  4. Open the dash at https://$host:8000 (or :5173 with just dev)"
+
+# Copy the repo plus the map/nav data to the Pi (then on the Pi: cd glassdash && sudo ./pi/setup.sh).
+# Skips the venv, node_modules, the 1.25 GB OSM download and the Mac's HTTPS certificate.
+pi-push host="pi@glassdash.local":
+    rsync -av --exclude .git/ --exclude .venv/ --exclude frontend/node_modules/ --exclude frontend/dist/ \
+      --exclude 'data/nav/*.osm.pbf' --exclude data/tls/ --exclude 'data/trips*.db*' ./ "{{host}}:glassdash/"

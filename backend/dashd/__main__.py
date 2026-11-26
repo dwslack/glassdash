@@ -1,7 +1,7 @@
 """Run dashd.
 
   python -m dashd --source sim          # laptop: fake ECUs + fake GPS, no hardware
-  python -m dashd --source socketcan    # Pi: real can0 (GPS via gpsd arrives in M1)
+  python -m dashd --source socketcan    # Pi: real can0 + GPS from gpsd
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import uvicorn
 from .body import BodyDecoder, BodyListener
 from .bus import SignalBus
 from .diag import Diagnostics
+from . import gpsd
 from .nav.favorites import Favorites
 from .nav.service import NavService
 from .obd import Poller
@@ -38,7 +39,7 @@ SIM_BODY_CHANNEL = "glassdash-sim-body"
 
 
 def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir: Path, scenario: str = "",
-          body_channel: str | None = None, nav_dir: Path | None = None):
+          body_channel: str | None = None, nav_dir: Path | None = None, gps: str = "127.0.0.1:2947"):
     sig = SignalBus()
     # Sim drives go in their own file so they never mix with real ones.
     trip_log = TripLog(data_dir / ("trips-sim.db" if source == "sim" else "trips.db"))
@@ -88,6 +89,9 @@ def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir:
             tasks.append(asyncio.create_task(body_sim.broadcast(body_tx, lambda: app.state.profile.frames, vehicle, stop)))
         else:
             app_bus = can.Bus(interface="socketcan", channel=channel)
+            if gps:
+                host, _, port = gps.rpartition(":")
+                tasks.append(asyncio.create_task(gpsd.follow(sig.set_gps, stop, host or "127.0.0.1", int(port or 2947))))
             # Channel 2 of the HAT on the single-wire body bus, listen-only at 33.333 kbit/s
             # (set up by the OS, see README). Missing interface = no body data, not a crash.
             body_bus = None
@@ -151,6 +155,8 @@ def main() -> None:
                     help="socketcan interface on GM single-wire CAN for doors/lights; '' to disable (sim has its own)")
     ap.add_argument("--scenario", choices=["", "overheat", "lowvolt", "oilpressure", "towing"], default="",
                     help="sim only: inject a fault to test alerts")
+    ap.add_argument("--gps", default="127.0.0.1:2947",
+                    help="socketcan only: gpsd HOST:PORT for the real GPS; '' to disable")
     ap.add_argument("--nav-dir", type=Path, default=None, help="offline routing + search data (default DATA/nav)")
     ap.add_argument("--tls-dir", type=Path, default=None,
                     help="serve HTTPS with cert.pem + key.pem from here (default DATA/tls if present; the iPad mic needs it)")
@@ -165,7 +171,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     try:
         app = build(args.source, args.channel, args.vehicle, args.track, args.data, args.scenario,
-                    args.body_channel, args.nav_dir)
+                    args.body_channel, args.nav_dir, args.gps)
     except ProfileError as e:
         ap.error(str(e))
     tls = args.tls_dir or args.data / "tls"

@@ -1,0 +1,10 @@
+[Unit]
+Description=glassdash: power off after the truck CAN bus goes quiet (key off)
+After=glassdash-can.service
+
+[Service]
+ExecStart=/usr/local/bin/glassdash-powerwatch
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
