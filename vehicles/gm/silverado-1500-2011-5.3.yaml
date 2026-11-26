@@ -1,4 +1,4 @@
-# The truck this project was built on. Same GMT900 base as other 2007-2013 Silverado/Sierra 1500s.
+# Same GMT900 base as other 2007-2013 Silverado/Sierra 1500s.
 schema: 1
 name: Chevrolet Silverado 1500 2011, 5.3 L V8
 extends: gm/gmt900

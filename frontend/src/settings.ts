@@ -12,8 +12,8 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
-  vehicle: "gm/silverado-1500-2011-5.3",
-  tank_l: 98, fuel_cal: 1, night: "auto", night_brightness: 0.55, alert_sound: true, voice: true,
+  vehicle: "gm/silverado-3500hd-2011-6.0",
+  tank_l: 136, fuel_cal: 1, night: "auto", night_brightness: 0.55, alert_sound: true, voice: true,
   coolant_warn: 108, coolant_bad: 115, trans_warn: 110, trans_bad: 125,
   volts_low: 13.2, volts_bad: 12.5, volts_high: 15.2, oil_pressure_min: 70, oil_temp_warn: 135,
   basemap: "street", esri_key: "", mapillary_token: "", anthropic_key: "", assistant_model: "claude-haiku-5-5",
