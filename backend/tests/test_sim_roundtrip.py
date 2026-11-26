@@ -94,3 +94,42 @@ def test_gps_follows_odometer():
     moved = gps.fix()
     assert (start["lat"], start["lon"]) != (moved["lat"], moved["lon"])
     assert 90 < moved["heading"] < 180  # heading roughly east-southeast
+
+
+def test_poller_survives_send_errors_and_recovers():
+    """On the bench (or key off) nothing ACKs, the TX queue fills and send() raises. The poller must keep going."""
+    class FlakyBus(can.BusABC):
+        def __init__(self, inner):
+            self.inner, self.fail = inner, True
+            super().__init__(channel="flaky")
+
+        def send(self, msg, timeout=None):
+            if self.fail:
+                raise can.CanOperationError("No buffer space available")
+            self.inner.send(msg, timeout)
+
+        def _recv_internal(self, timeout):
+            return self.inner.recv(timeout), False
+
+    async def go():
+        vehicle = Vehicle()
+        a = can.Bus(interface="virtual", channel="test-flaky")
+        b = can.Bus(interface="virtual", channel="test-flaky")
+        ecu = EcuSim(b, vehicle).start()
+        flaky = FlakyBus(a)
+        sig = SignalBus()
+        stop = asyncio.Event()
+        task = asyncio.create_task(Poller(flaky, load_pids(), sig, timeout=0.05).run(stop))
+        await asyncio.sleep(0.5)
+        assert not task.done()
+        assert "rpm" not in sig.snapshot()["signals"]
+        flaky.fail = False  # truck switched on
+        await asyncio.sleep(1.5)
+        stop.set()
+        await task
+        ecu.stop()
+        a.shutdown()
+        b.shutdown()
+        assert "rpm" in sig.snapshot()["signals"]
+
+    asyncio.run(go())

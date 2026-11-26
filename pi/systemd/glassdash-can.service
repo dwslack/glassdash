@@ -1,0 +1,12 @@
+[Unit]
+Description=glassdash: bring up CAN (hscan 500k, swcan 33.3k listen-only)
+After=systemd-udevd.service
+Before=glassdash.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/glassdash-can-up
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Bring up the two CAN channels of the Waveshare 2-CH CAN HAT+ (run as root by glassdash-can.service).
+#   hscan: OBD-II high-speed CAN (pins 6/14), 500 kbit/s, normal mode (dashd sends OBD requests)
+#   swcan: GMLAN single-wire CAN (pin 1), 33.333 kbit/s, LISTEN-ONLY: never ACKs or transmits
+# Names come from /etc/udev/rules.d/80-glassdash-can.rules, pinned to the SPI chip select,
+# so the two can never swap between boots. Settings: /etc/glassdash/can.env
+set -euo pipefail
+
+HS_IF=hscan HS_BITRATE=500000
+SW_IF=swcan SW_BITRATE=33333 SW_ENABLE=1
+WAIT_S=30
+# shellcheck disable=SC1091
+[ -f /etc/glassdash/can.env ] && . /etc/glassdash/can.env
+
+wait_for() {
+  local i
+  for ((i = 0; i < WAIT_S; i++)); do
+    [ -e "/sys/class/net/$1" ] && return 0
+    sleep 1
+  done
+  return 1
+}
+
+rc=0
+if wait_for "$HS_IF"; then
+  ip link set "$HS_IF" down
+  # restart-ms: recover from bus-off by itself (e.g. after the truck bus was unplugged mid-frame).
+  ip link set "$HS_IF" type can bitrate "$HS_BITRATE" restart-ms 100
+  ip link set "$HS_IF" txqueuelen 100
+  ip link set "$HS_IF" up
+  echo "$HS_IF up at $HS_BITRATE bit/s"
+else
+  echo "error: $HS_IF never appeared. Check the HAT is seated, then: dmesg | grep -i mcp251" >&2
+  rc=1
+fi
+
+if [ "$SW_ENABLE" = 1 ]; then
+  if wait_for "$SW_IF"; then
+    ip link set "$SW_IF" down
+    ip link set "$SW_IF" type can bitrate "$SW_BITRATE" listen-only on
+    ip link set "$SW_IF" up
+    # Belt and braces: refuse to leave the body bus up if listen-only didn't stick.
+    if ! ip -details link show "$SW_IF" | grep -q 'LISTEN-ONLY'; then
+      ip link set "$SW_IF" down
+      echo "error: $SW_IF did not accept listen-only; left it DOWN so it can't transmit on the body bus" >&2
+      rc=1
+    else
+      echo "$SW_IF up at $SW_BITRATE bit/s, listen-only"
+    fi
+  else
+    echo "warning: $SW_IF never appeared; doors/lights will be off" >&2
+  fi
+fi
+exit $rc

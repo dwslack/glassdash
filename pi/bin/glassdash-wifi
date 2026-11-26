@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Switch the Pi's WiFi between its own hotspot (in the truck, for the iPad) and your home WiFi
+# (on the bench, for updates and SSH).
+#   sudo glassdash-wifi hotspot   # Pi becomes "GlassDash" (or your SSID); stays that way across reboots
+#   sudo glassdash-wifi home      # back to the home WiFi you set in Raspberry Pi Imager
+#   glassdash-wifi status
+# Over SSH on WiFi, switching drops your session. Plug in Ethernet first, or reconnect after.
+set -euo pipefail
+AP=glassdash-ap
+
+case "${1:-status}" in
+  hotspot)
+    nmcli connection modify "$AP" connection.autoconnect yes connection.autoconnect-priority 100
+    echo "switching wlan0 to the hotspot (an SSH session over WiFi will drop now)"
+    nmcli connection up "$AP"
+    ;;
+  home)
+    nmcli connection modify "$AP" connection.autoconnect no
+    nmcli connection down "$AP" 2>/dev/null || true
+    nmcli device connect wlan0
+    ;;
+  status)
+    nmcli -f NAME,TYPE,DEVICE,AUTOCONNECT,AUTOCONNECT-PRIORITY connection show
+    ;;
+  *)
+    echo "usage: glassdash-wifi hotspot|home|status" >&2
+    exit 2
+    ;;
+esac

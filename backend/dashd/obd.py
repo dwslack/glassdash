@@ -25,6 +25,7 @@ class Poller:
         self._next_due = {p.name: 0.0 for p in pids}
         self._lock = asyncio.Lock()  # one request on the bus at a time
         self._reader: can.AsyncBufferedReader | None = None
+        self._send_failing = False
 
     def set_pids(self, pids: list[Pid]) -> None:
         """Switch vehicle profile without restarting."""
@@ -36,7 +37,11 @@ class Poller:
         if self._reader is None:
             return None
         async with self._lock:
-            return await isotp.transact(self.can_bus, self._reader, ecu, payload, timeout)
+            try:
+                return await isotp.transact(self.can_bus, self._reader, ecu, payload, timeout)
+            except can.CanError as e:
+                log.warning("diagnostic request to %03X failed: %s", ecu, e)
+                return None
 
     def _due(self, now: float) -> Pid | None:
         due = [p for p in self.pids if self._next_due[p.name] <= now]
@@ -47,7 +52,17 @@ class Poller:
     async def query(self, pid: Pid, reader: can.AsyncBufferedReader) -> float | None:
         while not reader.buffer.empty():  # drop late replies from earlier requests
             reader.buffer.get_nowait()
-        self.can_bus.send(can.Message(arbitration_id=pid.ecu, data=pid.request(), is_extended_id=False))
+        try:
+            self.can_bus.send(can.Message(arbitration_id=pid.ecu, data=pid.request(), is_extended_id=False))
+        except can.CanError as e:
+            # No ECU to ACK (bench, key off) fills the TX queue and send fails with ENOBUFS, or the
+            # controller is bus-off. Count it as a missed poll and back off instead of killing the poller.
+            if not self._send_failing:
+                log.warning("CAN send failing (%s); is the truck on and the OBD cable in?", e)
+                self._send_failing = True
+            await asyncio.sleep(self.timeout)
+            return None
+        self._send_failing = False
         deadline = time.monotonic() + self.timeout
         while (left := deadline - time.monotonic()) > 0:
             try:

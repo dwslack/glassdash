@@ -1,0 +1,18 @@
+[Unit]
+Description=glassdash dash server (dashd)
+Wants=glassdash-can.service gpsd.socket network-online.target
+After=glassdash-can.service gpsd.socket network-online.target
+
+[Service]
+User=glassdash
+Group=glassdash
+EnvironmentFile=-/etc/glassdash/dashd.env
+WorkingDirectory=/opt/glassdash/backend
+ExecStart=/opt/glassdash/.venv/bin/python -m dashd --source socketcan --channel hscan --body-channel swcan --data /var/lib/glassdash $DASHD_ARGS
+Restart=always
+RestartSec=3
+# Trips are checkpointed to SQLite every 15 s; give it time to finish on shutdown.
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

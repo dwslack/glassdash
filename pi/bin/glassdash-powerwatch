@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Shut the Pi down cleanly after the truck's CAN bus goes quiet (key off).
+# The ACC delay-off relay keeps power on for a few minutes after key-off; this must finish first,
+# so set the relay's delay longer than IDLE_S + about 30 s for the shutdown itself.
+#
+# Only arms after it has seen the truck talk at least once since boot, so a Pi on the bench
+# (nothing on the bus) never powers itself off. Disabled until you enable it at truck install:
+#   sudo systemctl enable --now glassdash-powerwatch
+set -euo pipefail
+
+HS_IF=hscan
+IDLE_S=180
+# shellcheck disable=SC1091
+[ -f /etc/glassdash/can.env ] && . /etc/glassdash/can.env
+# shellcheck disable=SC1091
+[ -f /etc/glassdash/power.env ] && . /etc/glassdash/power.env
+
+rx() { cat "/sys/class/net/$HS_IF/statistics/rx_packets" 2>/dev/null || echo 0; }
+
+armed=0
+last=$(rx)
+quiet=0
+while sleep 5; do
+  now=$(rx)
+  if [ "$now" != "$last" ]; then
+    [ $armed = 1 ] || echo "truck bus active; armed (shutdown after ${IDLE_S}s of silence)"
+    armed=1
+    quiet=0
+    last=$now
+    continue
+  fi
+  [ $armed = 1 ] || continue
+  quiet=$((quiet + 5))
+  if [ $quiet -ge "$IDLE_S" ]; then
+    echo "no frames on $HS_IF for ${IDLE_S}s; powering off"
+    systemctl poweroff
+    exit 0
+  fi
+done
