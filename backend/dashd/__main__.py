@@ -69,7 +69,7 @@ def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir:
             vehicle.set_route(Route.load(track))
             app.state.vehicle = vehicle  # lets /api/sim/route switch routes live
             ecu = EcuSim(ecu_bus, vehicle).start()
-            gps = GpsSim(vehicle)
+            gps_sim = GpsSim(vehicle)
             sim_parts = [ecu, ecu_bus]
 
             async def drive():
@@ -79,7 +79,7 @@ def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir:
 
             async def gps_feed():
                 while not stop.is_set():
-                    sig.set_gps(gps.fix())
+                    sig.set_gps(gps_sim.fix())
                     await asyncio.sleep(0.2)
 
             tasks += [asyncio.create_task(drive()), asyncio.create_task(gps_feed())]
@@ -88,7 +88,13 @@ def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir:
             sim_parts.append(body_tx)
             tasks.append(asyncio.create_task(body_sim.broadcast(body_tx, lambda: app.state.profile.frames, vehicle, stop)))
         else:
-            app_bus = can.Bus(interface="socketcan", channel=channel)
+            # Missing OBD interface (HAT not fitted, or not detected) = no engine gauges, not a crash:
+            # GPS, navigation, trips and the UI still work. A virtual bus stands in so the poller runs.
+            try:
+                app_bus = can.Bus(interface="socketcan", channel=channel)
+            except (OSError, can.CanError) as e:
+                log.warning("OBD bus %s not available (%s); engine gauges disabled until it is", channel, e)
+                app_bus = can.Bus(interface="virtual", channel=f"{channel}-missing")
             if gps:
                 host, _, port = gps.rpartition(":")
                 tasks.append(asyncio.create_task(gpsd.follow(sig.set_gps, stop, host or "127.0.0.1", int(port or 2947))))
