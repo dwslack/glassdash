@@ -4,6 +4,8 @@
 #   sudo ./pi/setup.sh                          # first run, and again after every update
 #   sudo ./pi/setup.sh --ssid GlassDash --psk 'at least 8 chars'   # choose the hotspot name/password
 #   sudo ./pi/setup.sh --skip-build             # don't rebuild the UI (it's already in frontend/dist)
+#   sudo ./pi/setup.sh --kiosk                  # also show the dash full screen on the Pi's own screen
+#   sudo ./pi/setup.sh --no-kiosk               # turn that off again (re-runs keep whichever you chose)
 #
 # Run it from the copy of the repo you rsynced to the Pi (see docs/pi-setup.md). It is safe to
 # re-run: each step checks what's there first. What it does:
@@ -16,15 +18,18 @@
 #   6. an HTTPS certificate for the Pi (the iPad mic needs HTTPS)
 #   7. a WiFi hotspot for the iPad, created but NOT switched on (glassdash-wifi hotspot does that)
 #   8. systemd: CAN bring-up + dashd at boot; the key-off auto shutdown is installed but disabled
+#   (--kiosk) cage + Chromium showing the dash on the Touch Display, rotated to landscape
 set -euo pipefail
 
-SSID="" PSK="" SKIP_BUILD=0
+SSID="" PSK="" SKIP_BUILD=0 KIOSK=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --ssid) SSID="$2"; shift 2 ;;
     --psk) PSK="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    --kiosk) KIOSK=1; shift ;;
+    --no-kiosk) KIOSK=0; shift ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -244,6 +249,40 @@ systemctl enable glassdash-can.service glassdash.service >/dev/null
 if [ "$REBOOT" = 0 ]; then
   systemctl restart glassdash-can.service || warn "CAN bring-up failed: journalctl -u glassdash-can"
   systemctl restart glassdash.service
+fi
+
+# ---------------------------------------------------------------------------------------------
+# Optional: the dash on the Pi's own screen. Re-runs keep the last choice.
+if [ -z "$KIOSK" ]; then
+  KIOSK=0
+  systemctl is-enabled -q glassdash-kiosk.service 2>/dev/null && KIOSK=1
+fi
+if [ "$KIOSK" = 1 ]; then
+  step "kiosk: dash full screen on the Pi's own screen"
+  apt-get install -y -q --no-install-recommends cage chromium wlr-randr fonts-dejavu-core
+  id kiosk >/dev/null 2>&1 || useradd --system --create-home --home-dir /home/kiosk --shell /bin/bash kiosk   # no password: nobody can log in as it
+  usermod -aG video,render,input kiosk
+  [ -f "$ETC/kiosk.env" ] || printf '# 0, 90, 180 or 270 (Touch Display 2 is portrait; 90 or 270 = landscape)\nKIOSK_ROTATE=90\nKIOSK_URL=https://localhost:8000\n' >"$ETC/kiosk.env"
+  # Chromium checks certificates against the kiosk user's own NSS store: add the Pi's CA there.
+  NSS=/home/kiosk/.pki/nssdb
+  install -d -o kiosk -g kiosk -m 700 /home/kiosk/.pki "$NSS"
+  [ -f "$NSS/cert9.db" ] || runuser -u kiosk -- certutil -d "sql:$NSS" -N --empty-password
+  runuser -u kiosk -- certutil -d "sql:$NSS" -D -n glassdash-ca >/dev/null 2>&1 || true
+  # $TLS is root:glassdash 750, so hand the kiosk user its own copy of the (public) CA cert.
+  install -o kiosk -g kiosk -m 644 "$TLS/glassdash-ca.crt" /home/kiosk/.pki/glassdash-ca.crt
+  runuser -u kiosk -- certutil -d "sql:$NSS" -A -t "C,," -n glassdash-ca -i /home/kiosk/.pki/glassdash-ca.crt
+  install -m 755 "$APP/pi/bin/glassdash-kiosk" /usr/local/bin/
+  systemctl daemon-reload
+  systemctl enable glassdash-kiosk.service >/dev/null
+  if [ "$REBOOT" = 0 ]; then
+    systemctl restart glassdash-kiosk.service
+  fi
+  echo "kiosk on (rotation in $ETC/kiosk.env; turn off with --no-kiosk)"
+elif systemctl is-enabled -q glassdash-kiosk.service 2>/dev/null; then
+  step "kiosk: turning it off"
+  systemctl disable --now glassdash-kiosk.service >/dev/null
+  systemctl start getty@tty1.service || true
+  echo "kiosk off (packages left installed)"
 fi
 
 step "done"

@@ -138,6 +138,18 @@ cgps                                  # live GPS view (q to quit)
 chronyc sources                       # is GPS a time source
 ```
 
+## 5b. Optional: the dash on the Pi's own screen (Touch Display 2)
+
+The iPad is the main screen; the Pi's Touch Display 2 can show the same dash at the same time. Connect it with the power off: the narrow end of the 22-to-15-way ribbon into the Pi's DISP 1 port (contacts toward the USB/Ethernet ports), the wide end into the display, and the red/black power lead to header **pin 2 (5 V) and pin 6 (GND)**, at the end of the header away from the USB ports. The Pi 5 detects it by itself; no config.txt change.
+
+```sh
+ssh -t pi@glassdash.local 'cd ~/glassdash && sudo ./pi/setup.sh --kiosk'
+```
+
+That installs `cage` (a one-app Wayland compositor) and Chromium (about 300 MB), and a `glassdash-kiosk` service that opens `https://localhost:8000` full screen on tty1 at boot. The Pi's CA is added to the kiosk user's certificate store, so there's no warning. The panel is portrait, so it's rotated 90° by default; if it ends up upside down, set `KIOSK_ROTATE=270` in `/etc/glassdash/kiosk.env` and `sudo systemctl restart glassdash-kiosk`. Turn it off with `--no-kiosk`.
+
+**With the CAN HAT fitted** the HAT covers the header pins the display takes its power from. Check whether your HAT passes pins 2 and 6 through before planning on both.
+
 ## 6. iPad: trust the Pi's certificate (once)
 
 Safari only lets the page use the microphone over HTTPS, so the iPad has to trust the Pi's own CA. Do this while the iPad and the Pi are both on your home WiFi:
