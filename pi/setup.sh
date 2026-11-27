@@ -211,8 +211,9 @@ if ! systemctl is-active -q NetworkManager; then
 else
   if [ -n "$SSID" ] || [ -n "$PSK" ] || ! nmcli -t -f NAME connection show | grep -qx glassdash-ap; then
     # Recreating it keeps the old name and password unless new ones were given, so the iPad stays paired.
-    [ -n "$SSID" ] || SSID="$(sed -n 's/^SSID=//p' "$ETC/hotspot.txt" 2>/dev/null)"
-    [ -n "$PSK" ] || PSK="$(sed -n 's/^PSK=//p' "$ETC/hotspot.txt" 2>/dev/null)"
+    # (On a fresh install hotspot.txt does not exist yet; `|| true` stops set -e killing the script there.)
+    [ -n "$SSID" ] || SSID="$(sed -n 's/^SSID=//p' "$ETC/hotspot.txt" 2>/dev/null || true)"
+    [ -n "$PSK" ] || PSK="$(sed -n 's/^PSK=//p' "$ETC/hotspot.txt" 2>/dev/null || true)"
     SSID="${SSID:-GlassDash}"
     [ -n "$PSK" ] || PSK="$(python3 -c 'import secrets; print("".join(secrets.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(12)))')"
     [ ${#PSK} -ge 8 ] || die "--psk must be at least 8 characters"
