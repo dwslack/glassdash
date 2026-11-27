@@ -21,7 +21,8 @@ fi
 
 # dashd takes a few seconds to start (and up to a minute at boot while CAN bring-up waits for the HAT).
 for _ in $(seq 120); do
-  curl -sfo /dev/null "$KIOSK_URL/" && break
+  # -k: only checking that dashd answers; Chromium does the real certificate check (Pi CA in its NSS store).
+  curl -ksfo /dev/null "$KIOSK_URL/" && break
   sleep 1
 done
 
