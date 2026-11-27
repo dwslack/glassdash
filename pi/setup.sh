@@ -268,7 +268,9 @@ if [ "$KIOSK" = 1 ]; then
   install -d -o kiosk -g kiosk -m 700 /home/kiosk/.pki "$NSS"
   [ -f "$NSS/cert9.db" ] || runuser -u kiosk -- certutil -d "sql:$NSS" -N --empty-password
   runuser -u kiosk -- certutil -d "sql:$NSS" -D -n glassdash-ca >/dev/null 2>&1 || true
-  runuser -u kiosk -- certutil -d "sql:$NSS" -A -t "C,," -n glassdash-ca -i "$TLS/glassdash-ca.crt"
+  # $TLS is root:glassdash 750, so hand the kiosk user its own copy of the (public) CA cert.
+  install -o kiosk -g kiosk -m 644 "$TLS/glassdash-ca.crt" /home/kiosk/.pki/glassdash-ca.crt
+  runuser -u kiosk -- certutil -d "sql:$NSS" -A -t "C,," -n glassdash-ca -i /home/kiosk/.pki/glassdash-ca.crt
   install -m 755 "$APP/pi/bin/glassdash-kiosk" /usr/local/bin/
   systemctl daemon-reload
   systemctl enable glassdash-kiosk.service >/dev/null
