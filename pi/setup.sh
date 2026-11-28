@@ -240,7 +240,7 @@ fi
 
 # ---------------------------------------------------------------------------------------------
 step "8/8 services"
-install -m 755 "$APP/pi/bin/glassdash-can-up" "$APP/pi/bin/glassdash-wifi" "$APP/pi/bin/glassdash-powerwatch" /usr/local/bin/
+install -m 755 "$APP/pi/bin/glassdash-can-up" "$APP/pi/bin/glassdash-wifi" "$APP/pi/bin/glassdash-powerwatch" "$APP/pi/bin/glassdash-mode" /usr/local/bin/
 install -m 755 "$APP/pi/selfcheck.sh" /usr/local/bin/glassdash-selfcheck
 install -m 644 "$APP"/pi/systemd/*.service /etc/systemd/system/
 systemctl daemon-reload

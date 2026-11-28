@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Switch dashd between the real truck and the built-in simulator, for bench testing.
+#   sudo glassdash-mode sim             fake truck + fake GPS driving a loop (no HAT or GPS needed)
+#   sudo glassdash-mode sim towing      same, with a scenario: overheat, lowvolt, oilpressure, towing
+#   sudo glassdash-mode real            the truck's CAN bus + the USB GPS (the normal setting)
+#   glassdash-mode                      show which one is on
+# It edits DASHD_ARGS in /etc/glassdash/dashd.env (other arguments there are kept) and restarts
+# dashd. Sim drives are logged to trips-sim.db, so they never mix with real trips.
+set -euo pipefail
+ENV=/etc/glassdash/dashd.env
+
+current() { sed -n 's/^DASHD_ARGS=//p' "$ENV" 2>/dev/null | tr -d '"' ; }
+# Everything in DASHD_ARGS except the mode switches this script manages.
+others() { current | sed -E 's/(^| )--source [a-z]+//g; s/(^| )--scenario [a-z]*//g; s/^ +//; s/ +$//'; }
+
+mode="${1:-}"
+case "$mode" in
+  "")
+    if current | grep -q -- '--source sim'; then
+      echo "sim$(current | sed -nE 's/.*--scenario ([a-z]+).*/ (\1)/p')"
+    else
+      echo "real"
+    fi
+    exit 0 ;;
+  sim|real) ;;
+  *) echo "usage: glassdash-mode [sim [overheat|lowvolt|oilpressure|towing] | real]" >&2; exit 2 ;;
+esac
+[ "$(id -u)" = 0 ] || { echo "run with sudo: sudo glassdash-mode $*" >&2; exit 1; }
+
+args="$(others)"
+if [ "$mode" = sim ]; then
+  scenario="${2:-}"
+  case "$scenario" in ""|overheat|lowvolt|oilpressure|towing) ;; *) echo "unknown scenario: $scenario" >&2; exit 2 ;; esac
+  args="${args:+$args }--source sim${scenario:+ --scenario $scenario}"
+fi
+if grep -q '^DASHD_ARGS=' "$ENV" 2>/dev/null; then
+  sed -i "s|^DASHD_ARGS=.*|DASHD_ARGS=\"$args\"|" "$ENV"
+else
+  echo "DASHD_ARGS=\"$args\"" >>"$ENV"
+fi
+systemctl restart glassdash.service
+echo "dashd is now in $(glassdash-mode 2>/dev/null || echo "$mode") mode"
