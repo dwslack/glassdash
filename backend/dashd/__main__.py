@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import contextlib
 import logging
+import os
 from pathlib import Path
 
 import can
@@ -39,7 +40,8 @@ SIM_BODY_CHANNEL = "glassdash-sim-body"
 
 
 def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir: Path, scenario: str = "",
-          body_channel: str | None = None, nav_dir: Path | None = None, gps: str = "127.0.0.1:2947"):
+          body_channel: str | None = None, nav_dir: Path | None = None, gps: str = "127.0.0.1:2947",
+          pi_voice: dict | None = None):
     sig = SignalBus()
     # Sim drives go in their own file so they never mix with real ones.
     trip_log = TripLog(data_dir / ("trips-sim.db" if source == "sim" else "trips.db"))
@@ -146,6 +148,10 @@ def build(source: str, channel: str, vehicle: str | None, track: Path, data_dir:
 
     app = create_app(sig, lifespan=lifespan, frontend_dist=ROOT / "frontend" / "dist", track=track, trips=trip_log, pids=pids,
                      settings=settings, map_dir=data_dir, profile=profile, tap=tap)
+    if pi_voice is not None:
+        from .pivoice import PiVoice
+        app.state.pivoice = PiVoice(data_dir, **pi_voice)
+        log.info("voice on the Pi: on (audio device %s)", pi_voice.get("device", "auto"))
     return app
 
 
@@ -166,6 +172,16 @@ def main() -> None:
     ap.add_argument("--nav-dir", type=Path, default=None, help="offline routing + search data (default DATA/nav)")
     ap.add_argument("--tls-dir", type=Path, default=None,
                     help="serve HTTPS with cert.pem + key.pem from here (default DATA/tls if present; the iPad mic needs it)")
+    # Voice on the Pi itself through a USB speakerphone (pi/setup.sh --pi-voice writes /etc/glassdash/voice.env).
+    env = os.environ.get
+    ap.add_argument("--pi-voice", action=argparse.BooleanOptionalAction, default=env("GLASSDASH_PI_VOICE") == "1",
+                    help="listen and speak through a USB speakerphone on this computer (for the Pi's own screen)")
+    ap.add_argument("--audio-device", default=env("GLASSDASH_AUDIO_DEVICE") or "auto",
+                    help="ALSA device for --pi-voice, e.g. plughw:CARD=Sync20 (default: the first USB audio device)")
+    ap.add_argument("--whisper-model", default=env("GLASSDASH_WHISPER_MODEL") or "base.en",
+                    help="speech recognition model for --pi-voice: tiny.en (fastest), base.en, small.en")
+    ap.add_argument("--piper-voice", type=Path, default=env("GLASSDASH_PIPER_VOICE") or None,
+                    help="Piper voice .onnx for --pi-voice (default: the first one in DATA/voice)")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
@@ -177,7 +193,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     try:
         app = build(args.source, args.channel, args.vehicle, args.track, args.data, args.scenario,
-                    args.body_channel, args.nav_dir, args.gps)
+                    args.body_channel, args.nav_dir, args.gps,
+                    pi_voice={"device": args.audio_device, "whisper_model": args.whisper_model,
+                              "piper_voice": args.piper_voice} if args.pi_voice else None)
     except ProfileError as e:
         ap.error(str(e))
     tls = args.tls_dir or args.data / "tls"

@@ -205,6 +205,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------
+if grep -qx 'GLASSDASH_PI_VOICE=1' /etc/glassdash/voice.env 2>/dev/null; then
+  head_ "Voice on the Pi (USB speakerphone)"
+  if grep -q USB-Audio /proc/asound/cards 2>/dev/null; then
+    pass "USB audio: $(awk '/USB-Audio/{sub(/.*USB-Audio - /,""); print; exit}' /proc/asound/cards)"
+  else
+    warn "no USB speakerphone plugged in (arecord -l lists sound cards)"
+  fi
+  pv=$(curl -fsS "${curlopt[@]}" "$scheme://localhost:$PORT/api/pivoice" 2>/dev/null || true)
+  if [ -z "$pv" ]; then fail "dashd didn't answer /api/pivoice"
+  elif [ "$(jq -r .enabled <<<"$pv")" != true ]; then fail "dashd isn't running with voice on (sudo systemctl restart glassdash)"
+  else
+    [ "$(jq -r .listen <<<"$pv")" = true ] && pass "speech recognition ready" || warn "speech recognition not ready: $(jq -r '[.problems[]] | join("; ")' <<<"$pv")"
+    [ "$(jq -r .speak <<<"$pv")" = true ] && pass "voice output ready" || warn "voice output not ready: $(jq -r '[.problems[]] | join("; ")' <<<"$pv")"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------------
 head_ "Key-off shutdown"
 if systemctl is-enabled -q glassdash-powerwatch.service 2>/dev/null; then
   pass "enabled (powers off ${IDLE_S:-180} s after the truck bus goes quiet)"

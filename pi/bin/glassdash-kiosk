@@ -27,7 +27,8 @@ for _ in $(seq 120); do
   sleep 1
 done
 
-# ?screen=pi tells the page it is on the Pi's own screen (no mic: the voice button is hidden).
+# ?screen=pi tells the page it is on the Pi's own screen: its voice button uses the Pi's speakerphone
+# (setup.sh --pi-voice), and is hidden when that is off.
 exec chromium --kiosk --app="${KIOSK_URL%/}/?screen=pi" \
   --ozone-platform=wayland --password-store=basic \
   --user-data-dir="$HOME/.config/glassdash-kiosk" \

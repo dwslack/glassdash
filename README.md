@@ -115,6 +115,8 @@ just https-cert   # makes data/tls, prints the 4 steps to trust it on the iPad
 
 Then use `https://<your-mac>.local:8000` (or `:5173` with `just dev`). On the Pi, `pi/setup.sh` makes its own certificate (see [docs/pi-setup.md](docs/pi-setup.md)).
 
+On the Pi's own screen, voice works through a USB speakerphone instead: `sudo ./pi/setup.sh --pi-voice` makes the Pi listen (Whisper) and speak (Piper) itself, offline. See [docs/pi-setup.md](docs/pi-setup.md#5b-optional-voice-on-the-pi-through-a-usb-speakerphone).
+
 ### Sim routes
 
 The sim can drive real roads. A route is road geometry from OSRM (OpenStreetMap routing) with a speed for each stretch. The truck accelerates and brakes like a loaded half-ton, slows for curves and towns, signals before sharp turns, parks with the engine off for 40 s at the destination, then starts over.
