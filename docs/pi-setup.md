@@ -150,6 +150,18 @@ That installs `cage` (a one-app Wayland compositor) and Chromium (about 300 MB),
 
 **With the CAN HAT fitted** the HAT covers the header pins the display takes its power from. Check whether your HAT passes pins 2 and 6 through before planning on both.
 
+## 5c. Bench testing with the simulator
+
+With no truck (or no HAT yet), switch dashd to the built-in simulator: a fake truck driving a loop with fake GPS, so every gauge, the map and trips move.
+
+```sh
+ssh -t pi@glassdash.local 'sudo glassdash-mode sim'          # or: sudo glassdash-mode sim towing  (overheat, lowvolt, oilpressure)
+ssh -t pi@glassdash.local 'sudo glassdash-mode real'         # back to the truck's CAN bus + USB GPS
+ssh pi@glassdash.local glassdash-mode                        # which one is on
+```
+
+Sim drives go to `trips-sim.db`, so they never mix with real trips. **Switch back to `real` before the truck install**: the self-check's CAN and GPS lines only mean anything in real mode.
+
 ## 6. iPad: trust the Pi's certificate (once)
 
 Safari only lets the page use the microphone over HTTPS, so the iPad has to trust the Pi's own CA. Do this while the iPad and the Pi are both on your home WiFi:
