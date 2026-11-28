@@ -262,7 +262,7 @@ if [ "$KIOSK" = 1 ]; then
   apt-get install -y -q --no-install-recommends cage chromium wlr-randr fonts-dejavu-core
   id kiosk >/dev/null 2>&1 || useradd --system --create-home --home-dir /home/kiosk --shell /bin/bash kiosk   # no password: nobody can log in as it
   usermod -aG video,render,input kiosk
-  [ -f "$ETC/kiosk.env" ] || printf '# 0, 90, 180 or 270 (Touch Display 2 is portrait; 90 or 270 = landscape)\nKIOSK_ROTATE=90\nKIOSK_URL=https://localhost:8000\n' >"$ETC/kiosk.env"
+  [ -f "$ETC/kiosk.env" ] || printf '# 0, 90, 180 or 270 (Touch Display 2 is portrait; 90 or 270 = landscape)\nKIOSK_ROTATE=270\nKIOSK_URL=https://localhost:8000\n' >"$ETC/kiosk.env"
   # Chromium checks certificates against the kiosk user's own NSS store: add the Pi's CA there.
   NSS=/home/kiosk/.pki/nssdb
   install -d -o kiosk -g kiosk -m 700 /home/kiosk/.pki "$NSS"
@@ -271,6 +271,21 @@ if [ "$KIOSK" = 1 ]; then
   # $TLS is root:glassdash 750, so hand the kiosk user its own copy of the (public) CA cert.
   install -o kiosk -g kiosk -m 644 "$TLS/glassdash-ca.crt" /home/kiosk/.pki/glassdash-ca.crt
   runuser -u kiosk -- certutil -d "sql:$NSS" -A -t "C,," -n glassdash-ca -i /home/kiosk/.pki/glassdash-ca.crt
+  # Touch doesn't follow the screen rotation under cage: rotate it to match with a libinput
+  # calibration matrix (270 checked on a Touch Display 2; the others follow from it).
+  ROT="$(sed -n 's/^KIOSK_ROTATE=//p' "$ETC/kiosk.env")"
+  case "$ROT" in
+    90) MATRIX="0 -1 1 1 0 0" ;;
+    180) MATRIX="-1 0 1 0 -1 1" ;;
+    270) MATRIX="0 1 0 -1 0 1" ;;
+    *) MATRIX="1 0 0 0 1 0" ;;
+  esac
+  TOUCH_RULE="ENV{ID_INPUT_TOUCHSCREEN}==\"1\", ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\""
+  if [ "$(cat /etc/udev/rules.d/99-glassdash-touch.rules 2>/dev/null)" != "$TOUCH_RULE" ]; then
+    echo "$TOUCH_RULE" >/etc/udev/rules.d/99-glassdash-touch.rules
+    udevadm control --reload && udevadm trigger --subsystem-match=input || true
+    echo "touch rotated to match the screen (KIOSK_ROTATE=$ROT)"
+  fi
   install -m 755 "$APP/pi/bin/glassdash-kiosk" /usr/local/bin/
   systemctl daemon-reload
   systemctl enable glassdash-kiosk.service >/dev/null

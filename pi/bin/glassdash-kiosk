@@ -2,11 +2,12 @@
 # Runs inside cage (a one-app Wayland compositor) on the Pi's own screen: rotate the panel,
 # wait for dashd, then show the dash full screen in Chromium. Started by glassdash-kiosk.service.
 # Settings: /etc/glassdash/kiosk.env
-#   KIOSK_ROTATE=90     0, 90, 180 or 270. Touch Display 2 is portrait (720x1280); 90 or 270 = landscape
+#   KIOSK_ROTATE=270    0, 90, 180 or 270. Touch Display 2 is portrait (720x1280); 90 or 270 = landscape.
+#                       After changing it, re-run setup.sh so touch is rotated to match.
 #   KIOSK_URL=https://localhost:8000
 set -uo pipefail
 
-KIOSK_ROTATE=90
+KIOSK_ROTATE=270
 KIOSK_URL=https://localhost:8000
 # shellcheck disable=SC1091
 [ -f /etc/glassdash/kiosk.env ] && . /etc/glassdash/kiosk.env
@@ -21,7 +22,8 @@ fi
 
 # dashd takes a few seconds to start (and up to a minute at boot while CAN bring-up waits for the HAT).
 for _ in $(seq 120); do
-  curl -sfo /dev/null "$KIOSK_URL/" && break
+  # -k: only checking that dashd answers; Chromium does the real certificate check (Pi CA in its NSS store).
+  curl -ksfo /dev/null "$KIOSK_URL/" && break
   sleep 1
 done
 

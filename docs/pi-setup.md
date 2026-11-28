@@ -146,7 +146,7 @@ The iPad is the main screen; the Pi's Touch Display 2 can show the same dash at 
 ssh -t pi@glassdash.local 'cd ~/glassdash && sudo ./pi/setup.sh --kiosk'
 ```
 
-That installs `cage` (a one-app Wayland compositor) and Chromium (about 300 MB), and a `glassdash-kiosk` service that opens `https://localhost:8000` full screen on tty1 at boot. The Pi's CA is added to the kiosk user's certificate store, so there's no warning. The panel is portrait, so it's rotated 90° by default; if it ends up upside down, set `KIOSK_ROTATE=270` in `/etc/glassdash/kiosk.env` and `sudo systemctl restart glassdash-kiosk`. Turn it off with `--no-kiosk`.
+That installs `cage` (a one-app Wayland compositor) and Chromium (about 300 MB), and a `glassdash-kiosk` service that opens `https://localhost:8000` full screen on tty1 at boot. The Pi's CA is added to the kiosk user's certificate store, so there's no warning. The panel is portrait, so it's rotated 270° by default, and touch is rotated to match (a libinput calibration matrix in `/etc/udev/rules.d/99-glassdash-touch.rules`). If it ends up upside down, set `KIOSK_ROTATE=90` in `/etc/glassdash/kiosk.env` and re-run `sudo ./pi/setup.sh` so touch follows. Turn it off with `--no-kiosk`.
 
 **With the CAN HAT fitted** the HAT covers the header pins the display takes its power from. Check whether your HAT passes pins 2 and 6 through before planning on both.
 
