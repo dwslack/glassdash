@@ -150,6 +150,26 @@ That installs `cage` (a one-app Wayland compositor) and Chromium (about 300 MB),
 
 **With the CAN HAT fitted** the HAT covers the header pins the display takes its power from. Check whether your HAT passes pins 2 and 6 through before planning on both.
 
+## 5b+. Optional: voice on the Pi through a USB speakerphone
+
+Chromium on the Pi can't do speech recognition, so the kiosk has no voice button by default. With a USB speakerphone (a conference "puck" such as a Poly Sync, which cancels its own echo), the Pi can listen and speak itself: Whisper turns speech into text on the Pi and Piper reads the replies, both offline. Basic commands then work in the truck with no internet; Claude questions still need one.
+
+Plug the speakerphone in and check it records and plays (talk for 5 seconds, then hear it back):
+
+```sh
+ssh -t pi@glassdash.local 'arecord -l; CARD=$(arecord -l | sed -n "s/^card [0-9]*: \([^ ]*\) .*/\1/p" | head -1); arecord -q -D plughw:CARD=$CARD -f S16_LE -r 16000 -c 1 -d 5 /tmp/t.wav && aplay -q -D plughw:CARD=$CARD /tmp/t.wav'
+```
+
+Then switch it on (needs internet once, to fetch about 220 MB of models):
+
+```sh
+ssh -t pi@glassdash.local 'cd ~/glassdash && sudo ./pi/setup.sh --pi-voice'
+```
+
+The kiosk's mic button now appears: tap, talk, and it stops listening by itself when you pause (or tap again). Replies and turn-by-turn prompts on the Pi's screen come out of the speakerphone; the iPad keeps its own mic and voice, so mute one of them if both are on. Settings are in `/etc/glassdash/voice.env`: `GLASSDASH_AUDIO_DEVICE` (default: the first USB audio device) and `GLASSDASH_WHISPER_MODEL` (`tiny.en` is faster, `small.en` is more accurate but slow on a Pi). After a change: `sudo systemctl restart glassdash`. Turn it off with `--no-pi-voice` (models stay on disk). `sudo glassdash-selfcheck` has a voice section while it's on.
+
+Bluetooth to the speakerphone, and phone calls through it, are not set up: USB needs no pairing and gives the speakerphone's echo cancellation for free.
+
 ## 5c. Bench testing with the simulator
 
 With no truck (or no HAT yet), switch dashd to the built-in simulator: a fake truck driving a loop with fake GPS, so every gauge, the map and trips move.
@@ -227,6 +247,7 @@ Settings, saved places and trips on the Pi are kept; the script never overwrites
 - **`hscan` and `swcan` the wrong way round** (body frames on `hscan`): the udev rule maps `spi1.1` to `hscan`. Swap the two names in `/etc/udev/rules.d/70-glassdash-can.rules` and reboot.
 - **No GPS fix:** `cgps` shows satellites seen. Indoors it can take a long time or never fix; try a window or outside. If gpsd sees no device, plug the dongle in and re-run setup so it pins it by id.
 - **Pi rebooting or the under-voltage warning:** the supply or cable can't do 5 A. The Pi 5 also caps USB current without `usb_max_current_enable=1`.
+- **Pi voice says it didn't hear anything:** `alsamixer -c <card>` (F4 for capture) to check the mic isn't muted or at 0. A noisy room raises the bar for what counts as speech; talk closer to the puck.
 - **Re-run is always safe:** `sudo ./pi/setup.sh` from `~/glassdash`.
 
 ## What's untested

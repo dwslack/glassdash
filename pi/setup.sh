@@ -6,6 +6,8 @@
 #   sudo ./pi/setup.sh --skip-build             # don't rebuild the UI (it's already in frontend/dist)
 #   sudo ./pi/setup.sh --kiosk                  # also show the dash full screen on the Pi's own screen
 #   sudo ./pi/setup.sh --no-kiosk               # turn that off again (re-runs keep whichever you chose)
+#   sudo ./pi/setup.sh --pi-voice               # voice assistant on the Pi through a USB speakerphone
+#   sudo ./pi/setup.sh --no-pi-voice            # turn that off again (re-runs keep whichever you chose)
 #
 # Run it from the copy of the repo you rsynced to the Pi (see docs/pi-setup.md). It is safe to
 # re-run: each step checks what's there first. What it does:
@@ -19,9 +21,10 @@
 #   7. a WiFi hotspot for the iPad, created but NOT switched on (glassdash-wifi hotspot does that)
 #   8. systemd: CAN bring-up + dashd at boot; the key-off auto shutdown is installed but disabled
 #   (--kiosk) cage + Chromium showing the dash on the Touch Display, rotated to landscape
+#   (--pi-voice) offline speech recognition (Whisper) + voice (Piper) on the Pi, through a USB speakerphone
 set -euo pipefail
 
-SSID="" PSK="" SKIP_BUILD=0 KIOSK=""
+SSID="" PSK="" SKIP_BUILD=0 KIOSK="" PIVOICE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --ssid) SSID="$2"; shift 2 ;;
@@ -29,7 +32,9 @@ while [ $# -gt 0 ]; do
     --skip-build) SKIP_BUILD=1; shift ;;
     --kiosk) KIOSK=1; shift ;;
     --no-kiosk) KIOSK=0; shift ;;
-    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+    --pi-voice) PIVOICE=1; shift ;;
+    --no-pi-voice) PIVOICE=0; shift ;;
+    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
     *) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -236,6 +241,52 @@ else
   else
     echo "hotspot already set up: $(grep SSID= "$ETC/hotspot.txt" 2>/dev/null || echo glassdash-ap)"
   fi
+fi
+
+# ---------------------------------------------------------------------------------------------
+# Optional: voice on the Pi itself through a USB speakerphone (the kiosk's mic button uses it).
+# Re-runs keep the last choice. Turning it off leaves the packages and models in place.
+VOICE_ENV="$ETC/voice.env"
+if [ -z "$PIVOICE" ]; then
+  PIVOICE=0
+  grep -qx 'GLASSDASH_PI_VOICE=1' "$VOICE_ENV" 2>/dev/null && PIVOICE=1
+fi
+if [ "$PIVOICE" = 1 ]; then
+  step "pi voice: speech recognition + voice through a USB speakerphone"
+  apt-get install -y -q --no-install-recommends alsa-utils
+  usermod -aG audio glassdash
+  "$APP/.venv/bin/pip" install -q "faster-whisper>=1.1" "piper-tts>=1.3"
+  VDIR="$DATA/voice"
+  install -d -o glassdash -g glassdash -m 755 "$VDIR"
+  # Models are downloaded once, here, so voice works later in the truck with no internet.
+  PIPER=en_US-lessac-medium
+  for f in "$PIPER.onnx" "$PIPER.onnx.json"; do
+    [ -s "$VDIR/$f" ] && continue
+    curl -fsSL --retry 3 -o "$VDIR/$f.part" "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/$f" \
+      && mv "$VDIR/$f.part" "$VDIR/$f" || warn "couldn't download the Piper voice $f (needs internet; re-run setup)"
+  done
+  [ -f "$VOICE_ENV" ] || cat >"$VOICE_ENV" <<'EOF2'
+# Voice on the Pi through a USB speakerphone (pi/setup.sh --pi-voice / --no-pi-voice).
+GLASSDASH_PI_VOICE=1
+# ALSA device; auto = the first USB audio device. List them with: arecord -l
+GLASSDASH_AUDIO_DEVICE=auto
+# Speech recognition model: tiny.en (fastest), base.en (default), small.en (most accurate, slow on a Pi)
+GLASSDASH_WHISPER_MODEL=base.en
+EOF2
+  sed -i 's/^GLASSDASH_PI_VOICE=.*/GLASSDASH_PI_VOICE=1/' "$VOICE_ENV"
+  # dashd only uses the models fetched here: never look for them online (the truck has no internet).
+  grep -q '^HF_HUB_OFFLINE=' "$VOICE_ENV" || echo 'HF_HUB_OFFLINE=1' >>"$VOICE_ENV"
+  WMODEL="$(sed -n 's/^GLASSDASH_WHISPER_MODEL=//p' "$VOICE_ENV")"
+  echo "fetching the Whisper ${WMODEL:-base.en} model (first time only, ~150 MB)"
+  runuser -u glassdash -- env HOME="$DATA" HF_HUB_OFFLINE=0 "$APP/.venv/bin/python" -c \
+    "import sys; from faster_whisper import WhisperModel; WhisperModel(sys.argv[1], device='cpu', compute_type='int8', download_root=sys.argv[2])" \
+    "${WMODEL:-base.en}" "$VDIR/whisper" >/dev/null || warn "couldn't fetch the Whisper model (needs internet; re-run setup)"
+  chown -R glassdash:glassdash "$VDIR"
+  grep -l "USB-Audio" /proc/asound/cards >/dev/null 2>&1 && echo "USB audio: $(awk '/USB-Audio/{sub(/.*USB-Audio - /,""); print; exit}' /proc/asound/cards)" \
+    || warn "no USB speakerphone plugged in yet (dashd finds it when it is)"
+  echo "pi voice on (settings in $VOICE_ENV; turn off with --no-pi-voice)"
+elif [ -f "$VOICE_ENV" ]; then
+  sed -i 's/^GLASSDASH_PI_VOICE=.*/GLASSDASH_PI_VOICE=0/' "$VOICE_ENV"
 fi
 
 # ---------------------------------------------------------------------------------------------

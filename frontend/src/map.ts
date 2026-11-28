@@ -63,7 +63,7 @@ export async function mountMap(container: HTMLElement, note: HTMLElement, toggle
   const updateNav = mountNav(map, container.parentElement!, document.getElementById("nav-toggle") as HTMLButtonElement, () => last);
   let following = false;
 
-  mountVoice(container.parentElement!);
+  void mountVoice(container.parentElement!);
 
   // Free look: any pan, zoom, rotate or tilt by hand stops the map following the truck until Recenter.
   let free = false;

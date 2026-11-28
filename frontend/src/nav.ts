@@ -1,5 +1,6 @@
 import maplibregl from "maplibre-gl";
 import { settings } from "./settings";
+import { piSay } from "./voice";
 import type { Fix, NavState } from "./types";
 
 // Turn-by-turn navigation: destination search, next-turn banner, lane arrows, ETA bar and spoken prompts.
@@ -129,7 +130,8 @@ export function mountNav(
   }
 
   const say = (text: string) => {
-    if (muted || !settings.voice || !("speechSynthesis" in window) || !text) return;
+    if (muted || !settings.voice || !text) return;
+    if (piSay(text) || !("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-CA";

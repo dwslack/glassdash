@@ -136,6 +136,34 @@ def create_app(
                           vehicle_fn=lambda: app.state.profile.name if app.state.profile else "vehicle")
     app.state.assistant = assistant
 
+    # ---- Voice on the Pi itself (USB speakerphone; dashd --pi-voice). The kiosk uses it. ----
+
+    def need_pivoice():
+        pv = getattr(app.state, "pivoice", None)
+        if pv is None:
+            raise HTTPException(404, "voice on the Pi is off (dashd --pi-voice)")
+        return pv
+
+    @app.get("/api/pivoice")
+    def pivoice_status():
+        pv = getattr(app.state, "pivoice", None)
+        return pv.status() if pv is not None else {"enabled": False}
+
+    @app.post("/api/pivoice/listen")
+    async def pivoice_listen():
+        return await need_pivoice().listen()
+
+    @app.post("/api/pivoice/stop")
+    async def pivoice_stop():
+        pv = need_pivoice()
+        await pv.stop_listening()
+        await pv.stop_speaking()
+        return {"ok": True}
+
+    @app.post("/api/pivoice/say")
+    async def pivoice_say(body: dict):
+        return await need_pivoice().say(str(body.get("text", "")))
+
     @app.post("/api/assistant")
     async def ask(body: dict):
         assistant.nav = nav or getattr(app.state, "nav", None)

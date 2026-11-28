@@ -3,6 +3,9 @@ import { saveSettings, settings } from "./settings";
 // Voice button: the iPad's speech recognition turns speech into text, dashd answers
 // (common commands locally, the rest via Claude), and the reply is spoken back.
 // Speech recognition needs a secure page (HTTPS, or localhost) and, on the iPad, usually a connection.
+//
+// On the Pi's own screen (the kiosk opens ?screen=pi) Chromium has no speech recognition, so if dashd
+// runs with --pi-voice the Pi does it: dashd listens and speaks through a USB speakerphone.
 
 type Rec = {
   lang: string; interimResults: boolean; continuous: boolean;
@@ -23,10 +26,23 @@ export function runAction(a: string): void {
   else if (a === "street_map") saveSettings({ basemap: "street" });
 }
 
-export function mountVoice(wrap: HTMLElement): void {
-  // The Pi's own screen (kiosk opens ?screen=pi) has no mic and Chromium on Linux has no speech
-  // recognition, so a voice button there could only fail. Voice is an iPad feature.
-  if (new URLSearchParams(location.search).get("screen") === "pi") return;
+export const onPiScreen = new URLSearchParams(location.search).get("screen") === "pi";
+let piVoice = false;   // dashd listens and speaks through the Pi's speakerphone
+
+/** Say something through the Pi's speakerphone (Pi screen only). False if the Pi can't speak. */
+export function piSay(text: string): boolean {
+  if (!piVoice) return false;
+  fetch("/api/pivoice/say", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) })
+    .catch(() => {});
+  return true;
+}
+
+export async function mountVoice(wrap: HTMLElement): Promise<void> {
+  // The Pi's own screen gets a voice button only when dashd has voice on (setup.sh --pi-voice).
+  if (onPiScreen) {
+    try { piVoice = (await (await fetch("/api/pivoice")).json()).enabled === true; } catch { piVoice = false; }
+    if (!piVoice) return;
+  }
   wrap.insertAdjacentHTML("beforeend", `
     <button id="voice" title="Talk to the dash" aria-label="Talk to the dash">
       <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -53,7 +69,8 @@ export function mountVoice(wrap: HTMLElement): void {
     if (!keep) hideTimer = window.setTimeout(() => { if (document.activeElement !== typed) bubble.hidden = true; }, 12000);
   };
   const speak = (text: string) => {
-    if (!text || !settings.voice || !("speechSynthesis" in window)) return;
+    if (!text || !settings.voice) return;
+    if (piSay(text) || !("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-CA";
@@ -80,7 +97,26 @@ export function mountVoice(wrap: HTMLElement): void {
     if (t) ask(t);
   };
 
+  let piListening = false;
+  async function piListen() {
+    if (piListening) { fetch("/api/pivoice/stop", { method: "POST" }).catch(() => {}); return; }
+    piListening = true;
+    button.classList.add("listening");
+    show("Listening…", "", true);
+    try {
+      const r = await fetch("/api/pivoice/listen", { method: "POST" });
+      const out = r.ok ? await r.json() : { text: "", error: "The dash didn't answer." };
+      if (out.text) ask(out.text); else show("", out.error || "I didn't catch that.");
+    } catch {
+      show("", "Can't reach the dash computer.");
+    } finally {
+      piListening = false;
+      button.classList.remove("listening");
+    }
+  }
+
   button.onclick = () => {
+    if (piVoice) { piListen(); return; }
     if ("speechSynthesis" in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance("")); } // unlock iPad speech
     if (rec) { rec.stop(); return; }
     if (!window.isSecureContext) {
