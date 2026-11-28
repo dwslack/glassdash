@@ -24,6 +24,9 @@ export function runAction(a: string): void {
 }
 
 export function mountVoice(wrap: HTMLElement): void {
+  // The Pi's own screen (kiosk opens ?screen=pi) has no mic and Chromium on Linux has no speech
+  // recognition, so a voice button there could only fail. Voice is an iPad feature.
+  if (new URLSearchParams(location.search).get("screen") === "pi") return;
   wrap.insertAdjacentHTML("beforeend", `
     <button id="voice" title="Talk to the dash" aria-label="Talk to the dash">
       <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">

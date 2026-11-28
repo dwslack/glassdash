@@ -27,7 +27,8 @@ for _ in $(seq 120); do
   sleep 1
 done
 
-exec chromium --kiosk --app="$KIOSK_URL" \
+# ?screen=pi tells the page it is on the Pi's own screen (no mic: the voice button is hidden).
+exec chromium --kiosk --app="${KIOSK_URL%/}/?screen=pi" \
   --ozone-platform=wayland --password-store=basic \
   --user-data-dir="$HOME/.config/glassdash-kiosk" \
   --no-first-run --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
